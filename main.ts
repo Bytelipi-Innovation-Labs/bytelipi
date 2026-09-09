@@ -1,394 +1,504 @@
+/**
+ * ByteLipi Controller Extension v1.0
+ *
+ * CONTROLLER = BRAIN
+ * SHIELD     = HARDWARE SLAVE
+ *
+ * Controller decides:
+ * - movement
+ * - speed
+ * - timing
+ * - sensor decisions
+ * - servo positions
+ * - radar scanning
+ * - OLED commands
+ * - sounds
+ * - sequences
+ *
+ * Shield only executes commands and returns sensor data.
+ */
+
 // ============================================================
-// ByteLipi Controller Extension
-// Version 1.0
-//
-// CONTROLLER = 100% ROBOT BRAIN
-// SHIELD     = HARDWARE EXECUTOR
-//
-// Controller decides:
-// - Movement
-// - Speed
-// - Movement duration
-// - Sensor interpretation
-// - Servo position
-// - Radar scan
-// - OLED messages
-// - Sound
-// - IF / ELSE
-// - Loops
-// - Sequences
-//
-// Shield only:
-// - Drives motors
-// - Moves servos
-// - Reads sensors
-// - Returns raw sensor data
-// - Executes display/sound commands
+// RADIO
 // ============================================================
 
-
-//% color="#1E88E5" icon="\uf135" block="ByteLipi"
 namespace ByteLipi {
-
-    // ========================================================
-    // RADIO
-    // ========================================================
 
     const RADIO_GROUP = 1
 
     let robotSpeed = 70
-
-    let lastDistance = 0
-
-    let lastP0Digital = 0
-    let lastP1Digital = 0
-    let lastP2Digital = 0
-
-    let lastP0Analog = 0
-    let lastP1Analog = 0
-    let lastP2Analog = 0
-
     let connected = false
+
+    // Sensor cache
+    let distanceCM = 0
+    let digitalP0 = 0
+    let digitalP1 = 0
+    let digitalP2 = 0
+
+    let analogP0 = 0
+    let analogP1 = 0
+    let analogP2 = 0
 
     // ========================================================
     // INITIALIZE
     // ========================================================
 
-    /**
-     * Start ByteLipi Controller.
-     */
     //% block="ByteLipi initialize"
-    //% blockId=bytelipiInitialize
+    //% blockId=bytelipi_initialize
     //% weight=100
-    //% group="Connection"
+    //% group="Setup"
     export function initialize(): void {
-
         radio.setGroup(RADIO_GROUP)
         radio.setTransmitPower(7)
 
-        connected = true
+        connected = false
 
-        radio.sendString("HB")
+        basic.pause(100)
+
+        radio.sendString("HELLO")
     }
-
 
     // ========================================================
     // SPEED
     // ========================================================
 
-    /**
-     * Set robot speed from 0 to 100.
-     */
     //% block="set robot speed %speed"
-    //% blockId=bytelipiSetSpeed
-    //% speed.min=0 speed.max=100 speed.defl=70
+    //% blockId=bytelipi_set_speed
+    //% speed.min=0 speed.max=100
     //% weight=95
-    //% group="Motion"
+    //% group="Motors"
     export function setSpeed(speed: number): void {
-
-        speed = Math.max(0, Math.min(100, speed))
-
-        robotSpeed = speed
+        robotSpeed = Math.constrain(0, 100, speed)
     }
 
-
-    /**
-     * Get current robot speed.
-     */
     //% block="robot speed"
-    //% blockId=bytelipiGetSpeed
+    //% blockId=bytelipi_get_speed
     //% weight=94
-    //% group="Motion"
+    //% group="Motors"
     export function getSpeed(): number {
-
         return robotSpeed
     }
 
-
     // ========================================================
-    // MOTOR 1 / MOTOR 2
+    // LOW LEVEL MOTOR COMMANDS
     // ========================================================
 
-    /**
-     * Set Motor 1 speed.
-     * Positive = forward
-     * Negative = backward
-     */
-    //% block="motor 1 speed %speed"
-    //% blockId=bytelipiMotor1
-    //% speed.min=-100 speed.max=100 speed.defl=70
-    //% weight=90
-    //% group="Motors"
-    export function motor1(speed: number): void {
-
-        speed = Math.max(-100, Math.min(100, speed))
-
+    function sendMotor1(speed: number): void {
+        speed = Math.constrain(-100, 100, speed)
         radio.sendValue("M1", speed)
     }
 
-
-    /**
-     * Set Motor 2 speed.
-     */
-    //% block="motor 2 speed %speed"
-    //% blockId=bytelipiMotor2
-    //% speed.min=-100 speed.max=100 speed.defl=70
-    //% weight=89
-    //% group="Motors"
-    export function motor2(speed: number): void {
-
-        speed = Math.max(-100, Math.min(100, speed))
-
+    function sendMotor2(speed: number): void {
+        speed = Math.constrain(-100, 100, speed)
         radio.sendValue("M2", speed)
     }
 
-
     // ========================================================
-    // CONTINUOUS MOVEMENT
+    // FORWARD
     // ========================================================
 
-    /**
-     * Move forward continuously.
-     */
-    //% block="forward"
-    //% blockId=bytelipiForward
-    //% weight=85
-    //% group="Motion"
+    //% block="move forward"
+    //% blockId=bytelipi_forward
+    //% weight=90
+    //% group="Motors"
     export function forward(): void {
-
-        motor1(robotSpeed)
-        motor2(robotSpeed)
+        sendMotor1(robotSpeed)
+        basic.pause(20)
+        sendMotor2(robotSpeed)
     }
 
+    // ========================================================
+    // BACKWARD
+    // ========================================================
 
-    /**
-     * Move backward continuously.
-     */
-    //% block="backward"
-    //% blockId=bytelipiBackward
-    //% weight=84
-    //% group="Motion"
+    //% block="move backward"
+    //% blockId=bytelipi_backward
+    //% weight=89
+    //% group="Motors"
     export function backward(): void {
-
-        motor1(-robotSpeed)
-        motor2(-robotSpeed)
+        sendMotor1(-robotSpeed)
+        basic.pause(20)
+        sendMotor2(-robotSpeed)
     }
 
+    // ========================================================
+    // LEFT
+    // ========================================================
 
-    /**
-     * Turn left continuously.
-     */
     //% block="turn left"
-    //% blockId=bytelipiTurnLeft
-    //% weight=83
-    //% group="Motion"
+    //% blockId=bytelipi_left
+    //% weight=88
+    //% group="Motors"
     export function turnLeft(): void {
-
-        motor1(-robotSpeed)
-        motor2(robotSpeed)
+        sendMotor1(-robotSpeed)
+        basic.pause(20)
+        sendMotor2(robotSpeed)
     }
 
+    // ========================================================
+    // RIGHT
+    // ========================================================
 
-    /**
-     * Turn right continuously.
-     */
     //% block="turn right"
-    //% blockId=bytelipiTurnRight
-    //% weight=82
-    //% group="Motion"
+    //% blockId=bytelipi_right
+    //% weight=87
+    //% group="Motors"
     export function turnRight(): void {
-
-        motor1(robotSpeed)
-        motor2(-robotSpeed)
+        sendMotor1(robotSpeed)
+        basic.pause(20)
+        sendMotor2(-robotSpeed)
     }
 
+    // ========================================================
+    // RELIABLE STOP
+    // ========================================================
 
-    /**
-     * Stop both motors.
-     */
-    //% block="stop"
-    //% blockId=bytelipiStop
-    //% weight=81
-    //% group="Motion"
-    export function stop(): void {
+    function reliableStop(): void {
+
+        radio.sendString("STOP")
+        basic.pause(25)
+
+        radio.sendString("STOP")
+        basic.pause(25)
 
         radio.sendString("STOP")
     }
 
+    //% block="stop robot"
+    //% blockId=bytelipi_stop
+    //% weight=86
+    //% group="Motors"
+    export function stop(): void {
+        reliableStop()
+    }
 
     // ========================================================
-    // CONTROLLER-SIDE TIMED MOVEMENT
-    //
-    // IMPORTANT:
-    // The Shield does NOT decide how long the robot moves.
-    //
-    // Controller:
-    //     MOTOR COMMAND
-    //     WAIT
-    //     STOP
+    // TIMED FORWARD
     // ========================================================
 
-    /**
-     * Move forward for a selected time.
-     */
     //% block="move forward for %milliseconds ms"
-    //% blockId=bytelipiForwardFor
-    //% milliseconds.min=10 milliseconds.max=30000 milliseconds.defl=1000
-    //% weight=80
-    //% group="Motion"
+    //% blockId=bytelipi_forward_for
+    //% milliseconds.min=1 milliseconds.max=60000
+    //% weight=85
+    //% group="Timed Movement"
     export function forwardFor(milliseconds: number): void {
 
-        motor1(robotSpeed)
-        motor2(robotSpeed)
+        milliseconds = Math.max(1, milliseconds)
 
-        basic.pause(milliseconds)
+        forward()
 
-        stop()
+        // Allow radio packets to reach Shield
+        basic.pause(50)
+
+        if (milliseconds > 50) {
+            basic.pause(milliseconds - 50)
+        }
+
+        reliableStop()
+
+        basic.pause(50)
     }
 
+    // ========================================================
+    // TIMED BACKWARD
+    // ========================================================
 
-    /**
-     * Move backward for a selected time.
-     */
     //% block="move backward for %milliseconds ms"
-    //% blockId=bytelipiBackwardFor
-    //% milliseconds.min=10 milliseconds.max=30000 milliseconds.defl=1000
-    //% weight=79
-    //% group="Motion"
+    //% blockId=bytelipi_backward_for
+    //% milliseconds.min=1 milliseconds.max=60000
+    //% weight=84
+    //% group="Timed Movement"
     export function backwardFor(milliseconds: number): void {
 
-        motor1(-robotSpeed)
-        motor2(-robotSpeed)
+        milliseconds = Math.max(1, milliseconds)
 
-        basic.pause(milliseconds)
+        backward()
 
-        stop()
+        basic.pause(50)
+
+        if (milliseconds > 50) {
+            basic.pause(milliseconds - 50)
+        }
+
+        reliableStop()
+
+        basic.pause(50)
     }
 
+    // ========================================================
+    // TIMED LEFT
+    // ========================================================
 
-    /**
-     * Turn left for a selected time.
-     */
     //% block="turn left for %milliseconds ms"
-    //% blockId=bytelipiTurnLeftFor
-    //% milliseconds.min=10 milliseconds.max=10000 milliseconds.defl=500
-    //% weight=78
-    //% group="Motion"
+    //% blockId=bytelipi_left_for
+    //% milliseconds.min=1 milliseconds.max=60000
+    //% weight=83
+    //% group="Timed Movement"
     export function turnLeftFor(milliseconds: number): void {
 
-        motor1(-robotSpeed)
-        motor2(robotSpeed)
+        milliseconds = Math.max(1, milliseconds)
 
-        basic.pause(milliseconds)
+        turnLeft()
 
-        stop()
+        basic.pause(50)
+
+        if (milliseconds > 50) {
+            basic.pause(milliseconds - 50)
+        }
+
+        reliableStop()
+
+        basic.pause(50)
     }
 
+    // ========================================================
+    // TIMED RIGHT
+    // ========================================================
 
-    /**
-     * Turn right for a selected time.
-     */
     //% block="turn right for %milliseconds ms"
-    //% blockId=bytelipiTurnRightFor
-    //% milliseconds.min=10 milliseconds.max=10000 milliseconds.defl=500
-    //% weight=77
-    //% group="Motion"
+    //% blockId=bytelipi_right_for
+    //% milliseconds.min=1 milliseconds.max=60000
+    //% weight=82
+    //% group="Timed Movement"
     export function turnRightFor(milliseconds: number): void {
 
-        motor1(robotSpeed)
-        motor2(-robotSpeed)
+        milliseconds = Math.max(1, milliseconds)
 
-        basic.pause(milliseconds)
+        turnRight()
 
-        stop()
+        basic.pause(50)
+
+        if (milliseconds > 50) {
+            basic.pause(milliseconds - 50)
+        }
+
+        reliableStop()
+
+        basic.pause(50)
     }
 
+    // ========================================================
+    // INDIVIDUAL MOTOR
+    // ========================================================
+
+    //% block="motor 1 speed %speed"
+    //% blockId=bytelipi_motor1
+    //% speed.min=-100 speed.max=100
+    //% weight=81
+    //% group="Motors"
+    export function motor1(speed: number): void {
+        sendMotor1(speed)
+    }
+
+    //% block="motor 2 speed %speed"
+    //% blockId=bytelipi_motor2
+    //% speed.min=-100 speed.max=100
+    //% weight=80
+    //% group="Motors"
+    export function motor2(speed: number): void {
+        sendMotor2(speed)
+    }
 
     // ========================================================
     // ULTRASONIC
     // ========================================================
 
-    /**
-     * Request ultrasonic distance from Shield.
-     */
     //% block="ultrasonic distance (cm)"
-    //% blockId=bytelipiUltrasonic
+    //% blockId=bytelipi_ultrasonic
     //% weight=70
     //% group="Sensors"
     export function ultrasonic(): number {
 
         radio.sendString("REQ_SONAR")
 
-        // Allow the Shield to answer.
-        basic.pause(35)
+        basic.pause(40)
 
-        return lastDistance
+        return distanceCM
     }
 
-
-    /**
-     * Return the last ultrasonic value received.
-     */
     //% block="last ultrasonic distance (cm)"
-    //% blockId=bytelipiLastUltrasonic
+    //% blockId=bytelipi_last_ultrasonic
     //% weight=69
     //% group="Sensors"
     export function lastUltrasonic(): number {
-
-        return lastDistance
+        return distanceCM
     }
 
+    // ========================================================
+    // DIGITAL SENSOR
+    // ========================================================
+
+    //% block="read digital sensor %pin"
+    //% blockId=bytelipi_read_digital
+    //% weight=68
+    //% group="Sensors"
+    export function readDigital(pin: DigitalPin): number {
+
+        if (pin == DigitalPin.P0) {
+            radio.sendString("REQ_P0_D")
+            basic.pause(40)
+            return digitalP0
+        }
+
+        if (pin == DigitalPin.P1) {
+            radio.sendString("REQ_P1_D")
+            basic.pause(40)
+            return digitalP1
+        }
+
+        if (pin == DigitalPin.P2) {
+            radio.sendString("REQ_P2_D")
+            basic.pause(40)
+            return digitalP2
+        }
+
+        return 0
+    }
+
+    // ========================================================
+    // ANALOG SENSOR
+    // ========================================================
+
+    //% block="read analog sensor %pin"
+    //% blockId=bytelipi_read_analog
+    //% weight=67
+    //% group="Sensors"
+    export function readAnalog(pin: AnalogPin): number {
+
+        if (pin == AnalogPin.P0) {
+            radio.sendString("REQ_P0_A")
+            basic.pause(40)
+            return analogP0
+        }
+
+        if (pin == AnalogPin.P1) {
+            radio.sendString("REQ_P1_A")
+            basic.pause(40)
+            return analogP1
+        }
+
+        if (pin == AnalogPin.P2) {
+            radio.sendString("REQ_P2_A")
+            basic.pause(40)
+            return analogP2
+        }
+
+        return 0
+    }
+
+    // ========================================================
+    // SENSOR CACHE
+    // ========================================================
+
+    //% block="last digital P0"
+    //% blockId=bytelipi_last_p0
+    //% weight=66
+    //% group="Sensors"
+    export function lastDigitalP0(): number {
+        return digitalP0
+    }
+
+    //% block="last digital P1"
+    //% blockId=bytelipi_last_p1
+    //% weight=65
+    //% group="Sensors"
+    export function lastDigitalP1(): number {
+        return digitalP1
+    }
+
+    //% block="last digital P2"
+    //% blockId=bytelipi_last_p2
+    //% weight=64
+    //% group="Sensors"
+    export function lastDigitalP2(): number {
+        return digitalP2
+    }
+
+    //% block="last analog P0"
+    //% blockId=bytelipi_last_a0
+    //% weight=63
+    //% group="Sensors"
+    export function lastAnalogP0(): number {
+        return analogP0
+    }
+
+    //% block="last analog P1"
+    //% blockId=bytelipi_last_a1
+    //% weight=62
+    //% group="Sensors"
+    export function lastAnalogP1(): number {
+        return analogP1
+    }
+
+    //% block="last analog P2"
+    //% blockId=bytelipi_last_a2
+    //% weight=61
+    //% group="Sensors"
+    export function lastAnalogP2(): number {
+        return analogP2
+    }
+
+    // ========================================================
+    // SERVO
+    // ========================================================
+
+    //% block="servo %pin angle %angle"
+    //% blockId=bytelipi_servo
+    //% angle.min=0 angle.max=180
+    //% weight=55
+    //% group="Servos"
+    export function setServo(pin: DigitalPin, angle: number): void {
+
+        angle = Math.constrain(0, 180, angle)
+
+        if (pin == DigitalPin.P4) {
+            radio.sendValue("S4", angle)
+        }
+        else if (pin == DigitalPin.P6) {
+            radio.sendValue("S6", angle)
+        }
+        else if (pin == DigitalPin.P10) {
+            radio.sendValue("S10", angle)
+        }
+        else if (pin == DigitalPin.P16) {
+            radio.sendValue("S16", angle)
+        }
+
+        basic.pause(30)
+    }
 
     // ========================================================
     // RADAR SCAN
-    //
-    // SERVO: P4
-    // ULTRASONIC: P8 TRIG / P3 ECHO
-    //
-    // Controller decides:
-    // 30°
-    // 45°
-    // 60°
-    // ...
-    // 150°
-    //
-    // Shield only executes:
-    // Servo position
-    // Ultrasonic measurement
     // ========================================================
 
-    /**
-     * Scan from 30 degrees to 150 degrees
-     * and return the nearest detected distance.
-     */
     //% block="Radar Scan → nearest distance (cm)"
-    //% blockId=bytelipiRadarScan
-    //% weight=65
+    //% blockId=bytelipi_radar_scan
+    //% weight=50
     //% group="Radar"
     export function radarScan(): number {
 
         let nearest = 400
 
-        // Controller decides every scan position.
+        // Controller decides the complete scan
+        // 30° → 45° → ... → 150°
+
         for (let angle = 30; angle <= 150; angle += 15) {
 
-            // Controller tells Shield where to move servo.
+            // Controller tells Shield where to point
             setServo(DigitalPin.P4, angle)
 
-            // Allow servo to reach position.
+            // Give servo time to move
             basic.pause(120)
 
-            // Controller requests ultrasonic measurement.
-            let distance = ultrasonic()
+            // Controller requests sensor data
+            let d = ultrasonic()
 
-            // Controller interprets the result.
-            if (distance > 0 && distance < nearest) {
-
-                nearest = distance
+            if (d > 0 && d < nearest) {
+                nearest = d
             }
         }
 
-        // Controller decides to return radar to center.
+        // Return radar to center
         setServo(DigitalPin.P4, 90)
 
         basic.pause(100)
@@ -396,379 +506,227 @@ namespace ByteLipi {
         return nearest
     }
 
-
-    // ========================================================
-    // DIGITAL SENSORS
-    // ========================================================
-
-    /**
-     * Read a digital sensor on P0, P1 or P2.
-     */
-    //% block="read digital sensor %pin"
-    //% blockId=bytelipiReadDigital
-    //% weight=60
-    //% group="Sensors"
-    export function readDigital(pin: DigitalPin): number {
-
-        if (pin == DigitalPin.P0) {
-
-            radio.sendString("REQ_P0_D")
-            basic.pause(30)
-
-            return lastP0Digital
-        }
-
-        if (pin == DigitalPin.P1) {
-
-            radio.sendString("REQ_P1_D")
-            basic.pause(30)
-
-            return lastP1Digital
-        }
-
-        if (pin == DigitalPin.P2) {
-
-            radio.sendString("REQ_P2_D")
-            basic.pause(30)
-
-            return lastP2Digital
-        }
-
-        return 0
-    }
-
-
-    // ========================================================
-    // ANALOG SENSORS
-    // ========================================================
-
-    /**
-     * Read analog sensor on P0, P1 or P2.
-     */
-    //% block="read analog sensor %pin"
-    //% blockId=bytelipiReadAnalog
-    //% weight=59
-    //% group="Sensors"
-    export function readAnalog(pin: AnalogPin): number {
-
-        if (pin == AnalogPin.P0) {
-
-            radio.sendString("REQ_P0_A")
-            basic.pause(30)
-
-            return lastP0Analog
-        }
-
-        if (pin == AnalogPin.P1) {
-
-            radio.sendString("REQ_P1_A")
-            basic.pause(30)
-
-            return lastP1Analog
-        }
-
-        if (pin == AnalogPin.P2) {
-
-            radio.sendString("REQ_P2_A")
-            basic.pause(30)
-
-            return lastP2Analog
-        }
-
-        return 0
-    }
-
-
-    // ========================================================
-    // SENSOR CACHE
-    // ========================================================
-
-    /**
-     * Last digital P0 value.
-     */
-    //% block="last P0 digital"
-    //% blockId=bytelipiLastP0Digital
-    //% weight=58
-    //% group="Sensors"
-    export function lastP0DigitalValue(): number {
-
-        return lastP0Digital
-    }
-
-
-    /**
-     * Last digital P1 value.
-     */
-    //% block="last P1 digital"
-    //% blockId=bytelipiLastP1Digital
-    //% weight=57
-    //% group="Sensors"
-    export function lastP1DigitalValue(): number {
-
-        return lastP1Digital
-    }
-
-
-    /**
-     * Last digital P2 value.
-     */
-    //% block="last P2 digital"
-    //% blockId=bytelipiLastP2Digital
-    //% weight=56
-    //% group="Sensors"
-    export function lastP2DigitalValue(): number {
-
-        return lastP2Digital
-    }
-
-
-    // ========================================================
-    // SERVOS
-    // ========================================================
-
-    /**
-     * Set servo angle from 0 to 180 degrees.
-     */
-    //% block="servo %pin angle %angle"
-    //% blockId=bytelipiSetServo
-    //% angle.min=0 angle.max=180 angle.defl=90
-    //% weight=50
-    //% group="Servos"
-    export function setServo(pin: DigitalPin, angle: number): void {
-
-        angle = Math.max(0, Math.min(180, angle))
-
-        if (pin == DigitalPin.P4) {
-
-            radio.sendValue("S4", angle)
-        }
-
-        if (pin == DigitalPin.P6) {
-
-            radio.sendValue("S6", angle)
-        }
-
-        if (pin == DigitalPin.P10) {
-
-            radio.sendValue("S10", angle)
-        }
-
-        if (pin == DigitalPin.P16) {
-
-            radio.sendValue("S16", angle)
-        }
-    }
-
-
     // ========================================================
     // OLED
     // ========================================================
 
-    /**
-     * Show text on Shield OLED.
-     */
     //% block="OLED show text %text"
-    //% blockId=bytelipiShowText
-    //% weight=40
-    //% group="Display"
+    //% blockId=bytelipi_oled_text
+    //% weight=45
+    //% group="OLED"
     export function showText(text: string): void {
-
         radio.sendString("TXT:" + text)
     }
 
-
-    /**
-     * Show number on Shield OLED.
-     */
-    //% block="OLED show number %number"
-    //% blockId=bytelipiShowNumber
-    //% weight=39
-    //% group="Display"
-    export function showNumber(number: number): void {
-
-        radio.sendValue("OLED_NUM", number)
+    //% block="OLED show number %value"
+    //% blockId=bytelipi_oled_number
+    //% weight=44
+    //% group="OLED"
+    export function showNumber(value: number): void {
+        radio.sendValue("OLED_NUM", value)
     }
 
-
-    /**
-     * Clear Shield OLED.
-     */
     //% block="OLED clear"
-    //% blockId=bytelipiClearDisplay
-    //% weight=38
-    //% group="Display"
+    //% blockId=bytelipi_oled_clear
+    //% weight=43
+    //% group="OLED"
     export function clearDisplay(): void {
-
         radio.sendString("OLED_CLR")
     }
 
-
-    /**
-     * Show an icon on Shield OLED.
-     */
     //% block="OLED show icon %icon"
-    //% blockId=bytelipiShowIcon
-    //% weight=37
-    //% group="Display"
+    //% blockId=bytelipi_oled_icon
+    //% weight=42
+    //% group="OLED"
     export function showIcon(icon: number): void {
-
         radio.sendValue("ICON", icon)
     }
-
 
     // ========================================================
     // SOUND
     // ========================================================
 
-    /**
-     * Play a tone.
-     */
-    //% block="play tone %frequency Hz"
-    //% blockId=bytelipiTone
-    //% frequency.min=100 frequency.max=5000 frequency.defl=1000
-    //% weight=30
+    //% block="play tone %frequency Hz for %duration ms"
+    //% blockId=bytelipi_tone
+    //% frequency.min=50 frequency.max=5000
+    //% duration.min=1 duration.max=5000
+    //% weight=40
     //% group="Sound"
-    export function tone(frequency: number): void {
+    export function tone(frequency: number, duration: number): void {
 
         radio.sendValue("TONE", frequency)
-    }
 
-
-    /**
-     * Play alarm.
-     */
-    //% block="alarm"
-    //% blockId=bytelipiAlarm
-    //% weight=29
-    //% group="Sound"
-    export function alarm(): void {
-
-        radio.sendString("ALARM")
-    }
-
-
-    /**
-     * Stop sound.
-     */
-    //% block="stop sound"
-    //% blockId=bytelipiStopSound
-    //% weight=28
-    //% group="Sound"
-    export function stopSound(): void {
+        basic.pause(duration)
 
         radio.sendString("MUTE")
     }
 
+    //% block="alarm"
+    //% blockId=bytelipi_alarm
+    //% weight=39
+    //% group="Sound"
+    export function alarm(): void {
+        radio.sendString("ALARM")
+    }
+
+    //% block="stop sound"
+    //% blockId=bytelipi_stop_sound
+    //% weight=38
+    //% group="Sound"
+    export function stopSound(): void {
+        radio.sendString("MUTE")
+    }
 
     // ========================================================
     // CONNECTION
     // ========================================================
 
-    /**
-     * Check whether Controller is initialized.
-     */
-    //% block="ByteLipi connected"
-    //% blockId=bytelipiConnected
-    //% weight=20
-    //% group="Connection"
+    //% block="Shield connected"
+    //% blockId=bytelipi_connected
+    //% weight=30
+    //% group="System"
     export function isConnected(): boolean {
-
         return connected
     }
-
 
     // ========================================================
     // EMERGENCY STOP
     // ========================================================
 
-    /**
-     * Immediately command Shield to stop motors.
-     */
-    //% block="emergency stop"
-    //% blockId=bytelipiEmergencyStop
-    //% weight=10
-    //% group="Connection"
+    //% block="Emergency Stop"
+    //% blockId=bytelipi_emergency_stop
+    //% weight=29
+    //% group="System"
     export function emergencyStop(): void {
 
-        radio.sendString("STOP")
-    }
+        reliableStop()
 
+        radio.sendString("MUTE")
+    }
 
     // ========================================================
     // CUSTOM COMMAND
     // ========================================================
 
-    /**
-     * Send a custom command to the Shield.
-     */
     //% block="send ByteLipi command %command"
-    //% blockId=bytelipiSendCommand
-    //% weight=5
+    //% blockId=bytelipi_command
+    //% weight=20
     //% group="Advanced"
     export function sendCommand(command: string): void {
-
         radio.sendString(command)
     }
 
-
     // ========================================================
     // RADIO RECEIVE
-    //
-    // Shield sends raw sensor values.
-    // Controller stores them.
-    // Controller makes decisions.
+    // ========================================================
+
+    radio.onReceivedString(function (received: string) {
+
+        if (received == "CONNECTED") {
+            connected = true
+        }
+
+        if (received == "SHIELD_READY") {
+            connected = true
+        }
+
+        // Ultrasonic response
+        if (received.indexOf("SONAR:") == 0) {
+
+            let value = parseInt(
+                received.substr(6)
+            )
+
+            if (!isNaN(value)) {
+                distanceCM = value
+            }
+        }
+
+        // Digital sensor responses
+        if (received.indexOf("P0_D:") == 0) {
+
+            digitalP0 = parseInt(
+                received.substr(5)
+            )
+        }
+
+        if (received.indexOf("P1_D:") == 0) {
+
+            digitalP1 = parseInt(
+                received.substr(5)
+            )
+        }
+
+        if (received.indexOf("P2_D:") == 0) {
+
+            digitalP2 = parseInt(
+                received.substr(5)
+            )
+        }
+
+        // Analog sensor responses
+        if (received.indexOf("P0_A:") == 0) {
+
+            analogP0 = parseInt(
+                received.substr(5)
+            )
+        }
+
+        if (received.indexOf("P1_A:") == 0) {
+
+            analogP1 = parseInt(
+                received.substr(5)
+            )
+        }
+
+        if (received.indexOf("P2_A:") == 0) {
+
+            analogP2 = parseInt(
+                received.substr(5)
+            )
+        }
+    })
+
+    // ========================================================
+    // RADIO VALUE RECEIVE
     // ========================================================
 
     radio.onReceivedValue(function (name: string, value: number) {
 
         if (name == "SONAR") {
-
-            lastDistance = value
+            distanceCM = value
         }
 
         if (name == "P0_D") {
-
-            lastP0Digital = value
+            digitalP0 = value
         }
 
         if (name == "P1_D") {
-
-            lastP1Digital = value
+            digitalP1 = value
         }
 
         if (name == "P2_D") {
-
-            lastP2Digital = value
+            digitalP2 = value
         }
 
         if (name == "P0_A") {
-
-            lastP0Analog = value
+            analogP0 = value
         }
 
         if (name == "P1_A") {
-
-            lastP1Analog = value
+            analogP1 = value
         }
 
         if (name == "P2_A") {
-
-            lastP2Analog = value
+            analogP2 = value
         }
     })
 
-
     // ========================================================
-    // SHIELD HEARTBEAT
-    //
-    // This is communication only.
-    // It does NOT contain robot behavior.
+    // HEARTBEAT
     // ========================================================
 
     control.inBackground(function () {
-
-        radio.setGroup(RADIO_GROUP)
-        radio.setTransmitPower(7)
 
         while (true) {
 
