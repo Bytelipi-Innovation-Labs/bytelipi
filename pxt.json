@@ -1,0 +1,17 @@
+{
+    "name": "bytelipi",
+    "version": "2.1.0",
+    "description": "ByteLipi Controller extension for micro:bit",
+    "license": "MIT",
+    "files": [
+        "main.ts"
+    ],
+    "dependencies": {
+        "core": "*",
+        "radio": "*"
+    },
+    "supportedTargets": [
+        "microbit"
+    ],
+    "preferredEditor": "tsprj"
+}
