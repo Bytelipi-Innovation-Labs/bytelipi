@@ -1,8 +1,9 @@
 {
     "name": "bytelipi",
-    "version": "2.1.0",
-    "description": "ByteLipi Controller extension for micro:bit",
+    "version": "2.3.0",
+    "description": "ByteLipi Controller extension. The Controller makes all robot decisions and the Shield only executes hardware commands.",
     "license": "MIT",
+    "author": "ByteLipi Innovation Labs",
     "files": [
         "main.ts"
     ],
