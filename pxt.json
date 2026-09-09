@@ -1,7 +1,7 @@
 {
     "name": "bytelipi",
-    "version": "2.3.0",
-    "description": "ByteLipi Controller extension. The Controller makes all robot decisions and the Shield only executes hardware commands.",
+    "version": "2.4.0",
+    "description": "ByteLipi Controller extension - Controller is the brain and Shield is the hardware slave.",
     "license": "MIT",
     "author": "ByteLipi Innovation Labs",
     "files": [
