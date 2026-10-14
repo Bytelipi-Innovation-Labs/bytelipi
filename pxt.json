@@ -1,6 +1,6 @@
 {
     "name": "bytelipi",
-    "version": "2.4.0",
+    "version": "2.5.1",
     "description": "ByteLipi Controller extension - Controller is the brain and Shield is the hardware slave.",
     "license": "MIT",
     "author": "ByteLipi Innovation Labs",
